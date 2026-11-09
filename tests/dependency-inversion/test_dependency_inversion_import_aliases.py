@@ -20,9 +20,12 @@ Concrete inputs -> expected outputs:
   output: expected the same report, got [].
 """
 
-from dependency_inversion_support import findings_for, repository_module
+from dependency_inversion_support import (
+    IDENTIFIERS,
+    findings_for,
+    repository_module,
+)
 from hypothesis import example, given, settings
-from open_closed_finder_support import IDENTIFIERS
 
 
 def _modules(

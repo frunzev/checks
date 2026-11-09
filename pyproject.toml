@@ -1,6 +1,12 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["configuration", "tests"]
+pythonpath = [
+    "configuration",
+    "tests",
+    "checks/experimental/single-responsibility",
+    "checks/experimental/semantic-duplicates",
+    "checks/experimental/open-closed",
+]
 
 [tool.basedpyright]
 typeCheckingMode = "all"

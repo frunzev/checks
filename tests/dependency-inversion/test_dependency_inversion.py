@@ -1,4 +1,3 @@
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -7,8 +6,8 @@ from dependency_inversion_support import (
     findings_for,
     repository_module,
     service_owning,
+    written_paths,
 )
-from open_closed_finder_support import written_paths
 from typescript_finder_support import CHECKS
 
 _REPOSITORY = repository_module()
@@ -19,7 +18,6 @@ _FINDER = (
     / "python"
     / "constructed_collaborators.py"
 )
-_SHARED_FINDERS = CHECKS / "experimental" / "open-closed" / "python"
 
 
 def test_reads_one_path_per_input_line(tmp_path: Path) -> None:
@@ -37,7 +35,6 @@ def test_reads_one_path_per_input_line(tmp_path: Path) -> None:
         text=True,
         check=True,
         cwd=tmp_path,
-        env={**os.environ, "PYTHONPATH": str(_SHARED_FINDERS)},
     )
 
     assert finished.stdout.splitlines() == [

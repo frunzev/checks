@@ -4,10 +4,8 @@ set -e
 
 echo "checks: dependency inversion in python (depend on abstractions)"
 
-shared_finders="$(dirname "$0")/../../open-closed/python"
-
 findings=$(python_files_in "$@" \
-    | PYTHONPATH="$shared_finders" "$toolkit_python" \
+    | "$toolkit_python" \
     "$(dirname "$0")/constructed_collaborators.py")
 constructions=$(printf '%s\n' "$findings" | reportable_findings)
 

@@ -2,7 +2,7 @@ import datetime
 import math
 import re
 from pathlib import Path, PurePosixPath
-from typing import cast
+from typing import NamedTuple, cast
 
 type Configuration = dict[str, object]
 
@@ -20,6 +20,7 @@ CHECK_ORDER = (
     "definition-names",
     "nested-definitions",
     "duplicate-code",
+    "semantic-duplicates",
     "dead-code",
     "linters",
     "unused-deps",
@@ -37,9 +38,23 @@ SCOPE_CHOICES = frozenset({"changed", "repository"})
 COMMON_CHECK_KEYS = frozenset(
     {"when", "scope", "whitelist", "source_directories"}
 )
-NUMBER_OPTIONS: dict[str, tuple[str, int, int]] = {
-    "file-length": ("max-lines", 1, 100_000),
-    "coverage": ("fail-under", 0, 100),
+
+
+class NumberOption(NamedTuple):
+    name: str
+    lowest: int
+    highest: int
+    default: int
+
+
+NUMBER_OPTIONS: dict[str, tuple[NumberOption, ...]] = {
+    "file-length": (NumberOption("max-lines", 1, 100_000, 300),),
+    "coverage": (NumberOption("fail-under", 0, 100, 100),),
+    "single-responsibility": (
+        NumberOption("code-similarity", 1, 100, 50),
+        NumberOption("word-overlap", 1, 100, 20),
+    ),
+    "semantic-duplicates": (NumberOption("code-similarity", 1, 100, 85),),
 }
 TOOL_OPTIONS: dict[str, frozenset[str]] = {
     "linters": frozenset({"ruff", "eslint", "phpcs"}),
@@ -158,17 +173,21 @@ def validate_plain_values(setting_name: str, setting_value: object) -> None:
             validate_plain_values(setting_name, nested_value)
 
 
-def validate_number_option(check_name: str, check: dict[str, object]) -> None:
-    if check_name not in NUMBER_OPTIONS:
-        return
+def validate_number_options(
+    check_name: str, check: dict[str, object]
+) -> None:
+    for number_option in NUMBER_OPTIONS.get(check_name, ()):
+        if number_option.name in check:
+            validate_number_option(check_name, check, number_option)
 
-    option_name, lowest, highest = NUMBER_OPTIONS[check_name]
 
-    if option_name not in check:
-        return
-
-    setting_name = f"checks.{check_name}.{option_name}"
-    option_value = check[option_name]
+def validate_number_option(
+    check_name: str, check: dict[str, object], number_option: NumberOption
+) -> None:
+    setting_name = f"checks.{check_name}.{number_option.name}"
+    option_value = check[number_option.name]
+    lowest = number_option.lowest
+    highest = number_option.highest
     is_flag = isinstance(option_value, bool)
 
     if is_flag or not isinstance(option_value, int):
@@ -184,8 +203,8 @@ def allowed_check_keys(check_name: str) -> set[str]:
     allowed_keys = set(COMMON_CHECK_KEYS)
     allowed_keys.update(TOOL_OPTIONS.get(check_name, frozenset()))
 
-    if check_name in NUMBER_OPTIONS:
-        allowed_keys.add(NUMBER_OPTIONS[check_name][0])
+    for number_option in NUMBER_OPTIONS.get(check_name, ()):
+        allowed_keys.add(number_option.name)
 
     return allowed_keys
 
@@ -215,7 +234,7 @@ def validate_check(check_name: str, check_section: object) -> None:
     if SOURCE_SETTING in check:
         validate_source_directories(check[SOURCE_SETTING])
 
-    validate_number_option(check_name, check)
+    validate_number_options(check_name, check)
 
     for tool_name in TOOL_OPTIONS.get(check_name, frozenset()):
         if tool_name in check:

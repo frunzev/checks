@@ -30,6 +30,12 @@ dart_files_in() {
     files_ending_in 'dart' "$@"
 }
 
+source_files_in() {
+    for language in $supported_languages; do
+        "${language}_files_in" "$@"
+    done
+}
+
 directories_written_in() {
     language=$1
     shift

@@ -6,6 +6,9 @@ toolkit=$(cd "$(dirname "$0")" && pwd)
 virtual_environment="$toolkit/.venv"
 dart_tool_cache="$toolkit/.pub-cache"
 property_test_finder="$toolkit/checks/experimental/property-tests/dart"
+responsibility_finder="$toolkit/checks/experimental/single-responsibility"
+code_model_downloader="$responsibility_finder/download_code_model.py"
+code_models="$toolkit/.models"
 dart_code_linter_version=4.4.2
 dependency_validator_version=5.1.0
 toolkit_folder=$(basename "$toolkit")
@@ -16,6 +19,7 @@ fi
 
 "$virtual_environment/bin/pip" install --quiet --upgrade pip
 "$virtual_environment/bin/pip" install --quiet -r "$toolkit/requirements.txt"
+"$virtual_environment/bin/python" "$code_model_downloader" "$code_models"
 
 npm install --silent --prefix "$toolkit"
 

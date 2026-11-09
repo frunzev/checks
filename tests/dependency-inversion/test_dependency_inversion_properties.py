@@ -2,6 +2,7 @@ import ast
 import keyword
 
 from dependency_inversion_support import (
+    IDENTIFIERS,
     ConstructedCollaborator,
     collaborator_names,
     findings_for,
@@ -12,7 +13,6 @@ from dependency_inversion_support import (
 )
 from hypothesis import assume, given
 from hypothesis import strategies as st
-from open_closed_finder_support import IDENTIFIERS
 from python_structure_types import Module
 
 _CLASS_NAMES = IDENTIFIERS.map(lambda name: name.title()).filter(

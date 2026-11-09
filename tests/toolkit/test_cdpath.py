@@ -29,7 +29,7 @@ from pathlib import Path
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
 
-from check_support import TOOLKIT
+from check_support import TOOLKIT, stub_code_model_downloader
 
 TOOLKIT_FOLDER = ".checks"
 TOOLKIT_FILES = ("install.sh", "run", "tools.sh", "languages.sh")
@@ -85,6 +85,7 @@ def _project(workspace: Path) -> Path:
     _link(tools / "python", Path(sys.executable))
     _link(tools / "basedpyright", TOOLKIT / ".venv" / "bin" / "basedpyright")
     _executable(tools / "pip", "#!/bin/sh\nexit 0\n")
+    stub_code_model_downloader(toolkit)
     _link(project / ".venv" / "bin" / "python", Path(sys.executable))
     _ = (project / ".gitignore").write_text(".venv/\n", encoding="utf-8")
     _ = (project / "checks.toml").write_text(CONFIGURATION, encoding="utf-8")

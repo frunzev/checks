@@ -4,6 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from check_support import stub_code_model_downloader
+
 TOOLKIT = Path(__file__).resolve().parents[2]
 TOOLKIT_FOLDER = ".checks"
 TOOLKIT_FILES = ("install.sh", "run", "tools.sh", "languages.sh")
@@ -49,6 +51,7 @@ def _project(tmp_path: Path) -> Path:
     python_link.parent.mkdir(parents=True)
     python_link.symlink_to(Path(sys.executable))
     _stub(toolkit / ".venv" / "bin" / "pip")
+    stub_code_model_downloader(toolkit)
     _git(project, "init", "--quiet")
     _git(project, "config", "user.email", "hooks@example.com")
     _git(project, "config", "user.name", "hooks")
@@ -82,6 +85,16 @@ def test_install_keeps_a_last_ignore_line_without_a_newline(
 
     ignored = (project / ".gitignore").read_text(encoding="utf-8")
     assert ignored.splitlines() == ["node_modules", f"{TOOLKIT_FOLDER}/"]
+
+
+def test_install_downloads_the_code_model_into_the_toolkit(
+    tmp_path: Path,
+) -> None:
+    project = _project(tmp_path)
+
+    _install(tmp_path, project)
+
+    assert (project / TOOLKIT_FOLDER / ".models").is_dir()
 
 
 def test_hooks_run_in_a_linked_worktree(tmp_path: Path) -> None:

@@ -25,7 +25,12 @@ import pytest
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
 
-from check_support import link_real_python, repository, run_check
+from check_support import (
+    link_real_python,
+    link_toolkit_virtual_environment,
+    repository,
+    run_check,
+)
 
 FINDER_CHECKS = ("open-closed", "dependency-inversion", "nested-definitions")
 NON_UTF8_NAME = os.fsdecode(b"caf\xe9.py")
@@ -63,6 +68,7 @@ def test_finder_property_reads_a_file_name_that_is_not_utf8(
     with tempfile.TemporaryDirectory() as directory:
         project = Path(directory)
         repository(project)
+        link_toolkit_virtual_environment(project)
         link_real_python(project)
         source = project / module
         source.parent.mkdir(parents=True)

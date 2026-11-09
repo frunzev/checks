@@ -26,7 +26,6 @@ DEFAULT_SETTINGS: Configuration = {
     "stable": "pre-commit",
     "checks": {},
 }
-DEFAULT_NUMBERS = {"max-lines": 300, "fail-under": 100}
 CHECK_DEFAULTS: dict[str, object] = {"scope": "repository", "whitelist": []}
 OFF = "off"
 BOTH_HOOKS = "both"
@@ -69,9 +68,8 @@ def check_settings(
         SOURCE_SETTING: configuration[SOURCE_SETTING],
     }
 
-    if check_name in NUMBER_OPTIONS:
-        option_name = NUMBER_OPTIONS[check_name][0]
-        settings[option_name] = DEFAULT_NUMBERS[option_name]
+    for number_option in NUMBER_OPTIONS.get(check_name, ()):
+        settings[number_option.name] = number_option.default
 
     for tool_name in TOOL_OPTIONS.get(check_name, frozenset()):
         settings[tool_name] = {}

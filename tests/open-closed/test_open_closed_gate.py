@@ -1,90 +1,105 @@
-import subprocess
 from pathlib import Path
 
-import pytest
-
 from check_support import (
-    link_real_python,
-    link_toolkit_node_modules,
+    link_toolkit_virtual_environment,
     repository,
     run_check,
     stage_file,
     stderr_lines,
 )
 
-_DECLINED = "Payment was declined by the bank"
-_PRODUCERS = {
-    "python": (
-        "user-service/src/server.py",
-        f"def register():\n    raise ValueError({_DECLINED!r})\n",
-    ),
-    "typescript": (
-        "ui-service/src/server.ts",
-        "export function register(): void {\n"
-        f"  throw new Error({_DECLINED!r});\n}}\n",
-    ),
-}
-_CONSUMERS = {
-    "python": (
-        "user-service/src/client.py",
-        f"def retry(text):\n    return text == {_DECLINED!r}\n",
-    ),
-    "typescript": (
-        "ui-service/src/client.ts",
-        "export function retry(text: string): boolean {\n"
-        f"  return text === {_DECLINED!r};\n}}\n",
-    ),
-}
-
-
-def test_failure_suggests_ocp_extension_patterns(tmp_path: Path) -> None:
-    source = (
-        "def href(unit):\n"
-        "    if unit.kind == 'folder':\n        return '/folder'\n"
-        "    if unit.kind == 'file':\n        return '/file'\n"
-        "    if unit.kind == 'note':\n        return '/note'\n"
-    )
-    repository(tmp_path)
-    link_real_python(tmp_path)
-    stage_file(tmp_path, "user-service/src/presentation.py", source)
-    finished = run_check(tmp_path, "open-closed")
-
-    assert finished.returncode == 1
-    assert "follow OCP" in finished.stderr
-    assert "strategy/handler" in finished.stderr
-    assert "polymorphism" in finished.stderr
-    assert "registry" in finished.stderr
-
-
-@pytest.mark.parametrize("scope", ["repository", "changed"])
-@pytest.mark.parametrize(
-    ("producer", "consumer"),
-    [("python", "typescript"), ("typescript", "python")],
+CHECK_NAME = "open-closed"
+EXPORT_PATH = "user-service/src/export.py"
+PREVIEW_PATH = "ui-service/src/preview.ts"
+SETTINGS_PATH = "user-service/src/settings.py"
+EXPORT_REPORT = (
+    "def export_report(report_kind):\n"
+    '    if report_kind == "pdf":\n'
+    "        return render_pdf()\n"
+    '    elif report_kind == "csv":\n'
+    "        return render_csv()\n"
+    '    elif report_kind == "xlsx":\n'
+    "        return render_xlsx()\n"
+    "    raise ValueError(report_kind)\n"
 )
-def test_reports_error_text_coupling_across_languages_once(
-    tmp_path: Path, producer: str, consumer: str, scope: str
-) -> None:
-    producer_path, producer_source = _PRODUCERS[producer]
-    consumer_path, consumer_source = _CONSUMERS[consumer]
+PREVIEW_REPORT = (
+    "export function previewReport(reportKind: string): string {\n"
+    "  switch (reportKind) {\n"
+    '    case "pdf":\n'
+    "      return showPdf();\n"
+    '    case "csv":\n'
+    "      return showCsv();\n"
+    '    case "xlsx":\n'
+    "      return showXlsx();\n"
+    "  }\n"
+    "  throw new Error(reportKind);\n"
+    "}\n"
+)
+ENVIRONMENT_CHECKS = (
+    "def debug_level():\n"
+    '    if os.environ["APP_MODE"] == "development":\n'
+    "        return 10\n"
+    "    return 20\n"
+    "\n"
+    "def cache_seconds():\n"
+    '    if os.environ["APP_MODE"] == "development":\n'
+    "        return 0\n"
+    "    return 60\n"
+)
+EXPORT_FINDING = (
+    f"{EXPORT_PATH}:1: export_report branches on csv, pdf, xlsx, as do"
+    f" {PREVIEW_PATH}:1 previewReport"
+)
+PREVIEW_FINDING = (
+    f"{PREVIEW_PATH}:1: previewReport branches on csv, pdf, xlsx, as do"
+    f" {EXPORT_PATH}:1 export_report"
+)
+
+
+def _staged_repository(tmp_path: Path, files: dict[str, str]) -> None:
     repository(tmp_path)
-    link_real_python(tmp_path)
-    link_toolkit_node_modules(tmp_path)
-    stage_file(tmp_path, producer_path, producer_source)
-    _ = subprocess.run(
-        ["git", "commit", "--quiet", "-m", "producer"],
-        cwd=tmp_path,
-        check=True,
-    )
-    stage_file(tmp_path, consumer_path, consumer_source)
-    finished = run_check(
-        tmp_path, "open-closed", {"open-closed": f'scope = "{scope}"\n'}
+    link_toolkit_virtual_environment(tmp_path)
+
+    for path, source in files.items():
+        stage_file(tmp_path, path, source)
+
+
+def test_reports_variants_dispatched_in_two_languages(tmp_path: Path) -> None:
+    _staged_repository(
+        tmp_path, {EXPORT_PATH: EXPORT_REPORT, PREVIEW_PATH: PREVIEW_REPORT}
     )
 
-    reported = [
-        line for line in stderr_lines(finished) if "error text" in line
-    ]
+    finished = run_check(tmp_path, CHECK_NAME)
 
     assert finished.returncode == 1
-    assert len(reported) == 1
-    assert f"{consumer_path}:2" in reported[0]
-    assert f"{producer_path}:2" in reported[0]
+    assert EXPORT_FINDING in stderr_lines(finished)
+    assert PREVIEW_FINDING in stderr_lines(finished)
+
+
+def test_passes_variants_dispatched_in_one_place(tmp_path: Path) -> None:
+    _staged_repository(tmp_path, {EXPORT_PATH: EXPORT_REPORT})
+
+    finished = run_check(tmp_path, CHECK_NAME)
+
+    assert finished.returncode == 0, finished.stderr
+
+
+def test_passes_the_same_single_condition_in_two_places(
+    tmp_path: Path,
+) -> None:
+    _staged_repository(tmp_path, {SETTINGS_PATH: ENVIRONMENT_CHECKS})
+
+    finished = run_check(tmp_path, CHECK_NAME)
+
+    assert finished.returncode == 0, finished.stderr
+
+
+def test_passes_whitelisted_findings(tmp_path: Path) -> None:
+    _staged_repository(
+        tmp_path, {EXPORT_PATH: EXPORT_REPORT, PREVIEW_PATH: PREVIEW_REPORT}
+    )
+    whitelist = f'whitelist = ["{EXPORT_FINDING}", "{PREVIEW_FINDING}"]\n'
+
+    finished = run_check(tmp_path, CHECK_NAME, {CHECK_NAME: whitelist})
+
+    assert finished.returncode == 0, finished.stderr

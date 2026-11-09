@@ -11,3 +11,5 @@ composer.lock
 .pub-cache/
 .dart_tool/
 pubspec.lock
+.models/
+.cache/

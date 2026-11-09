@@ -30,12 +30,20 @@ EXPERIMENTAL_CHECKS = (
     "dependency-inversion",
     "definition-names",
     "nested-definitions",
+    "semantic-duplicates",
     "property-tests",
 )
 HYPOTHESIS_SETTINGS = settings(
     max_examples=8,
     deadline=None,
     suppress_health_check=[HealthCheck.function_scoped_fixture],
+)
+CODE_MODEL_DOWNLOADER = (
+    Path("checks") / "experimental" / "single-responsibility"
+    / "download_code_model.py"
+)
+FOLDER_CREATING_DOWNLOADER = (
+    "import sys\nfrom pathlib import Path\nPath(sys.argv[1]).mkdir()\n"
 )
 CheckRun = subprocess.CompletedProcess[str]
 
@@ -76,6 +84,23 @@ def link_real_python(tmp_path: Path) -> None:
 def link_toolkit_node_modules(tmp_path: Path) -> None:
     copied_modules = tmp_path / COPIED_TOOLKIT / "node_modules"
     copied_modules.symlink_to(TOOLKIT / "node_modules")
+
+
+def stub_code_model_downloader(copied_toolkit: Path) -> None:
+    _ = (copied_toolkit / CODE_MODEL_DOWNLOADER).write_text(
+        FOLDER_CREATING_DOWNLOADER, encoding="utf-8"
+    )
+
+
+def link_toolkit_virtual_environment(tmp_path: Path) -> None:
+    copied_environment = tmp_path / COPIED_TOOLKIT / ".venv"
+    shutil.rmtree(copied_environment)
+    copied_environment.symlink_to(TOOLKIT / ".venv")
+
+
+def link_toolkit_code_models(tmp_path: Path) -> None:
+    copied_models = tmp_path / COPIED_TOOLKIT / ".models"
+    copied_models.symlink_to(TOOLKIT / ".models")
 
 
 def php_package(tmp_path: Path, package: str, manifest: str) -> None:

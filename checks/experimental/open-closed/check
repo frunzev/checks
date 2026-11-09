@@ -1,0 +1,21 @@
+#!/bin/sh
+set -e
+. "$toolkit/tools.sh"
+
+echo "checks: open-closed (the same variants branched on in many places)"
+echo "checks: Agent: first identify whether each finding is a real"
+echo "checks: OCP violation. Fix only the real violations. If a finding"
+echo "checks: is not one, never refactor it - whitelist it: add the"
+echo "checks: exact finding to the [checks.open-closed] whitelist in"
+echo "checks: checks.toml"
+
+shared_finder_directory="$(dirname "$0")/../single-responsibility"
+
+findings=$(source_files_in "$@" \
+    | PYTHONPATH="$shared_finder_directory" \
+        "$toolkit_python" "$(dirname "$0")/open_closed_finder.py")
+repeated_dispatches=$(printf '%s\n' "$findings" | reportable_findings)
+
+fail_on_findings "$repeated_dispatches" \
+    "these variants are branched on in many places - adding one edits" \
+    "every place; give each variant one home (a class or a registry):"

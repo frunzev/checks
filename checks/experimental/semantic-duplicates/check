@@ -1,0 +1,23 @@
+#!/bin/sh
+set -e
+. "$toolkit/tools.sh"
+
+echo "checks: semantic duplicates (the same logic in other words)"
+echo "checks: Agent: first identify whether each finding is a real"
+echo "checks: duplicate. Merge only the real duplicates. If a finding"
+echo "checks: is not one, never refactor it - whitelist it: add the"
+echo "checks: exact finding to the [checks.semantic-duplicates]"
+echo "checks: whitelist in checks.toml"
+
+shared_finder_directory="$(dirname "$0")/../single-responsibility"
+
+findings=$(source_files_in "$@" \
+    | PYTHONPATH="$shared_finder_directory" \
+        "$toolkit_python" "$(dirname "$0")/duplicate_finder.py" \
+        --code-similarity "$(setting "checks.$check_name.code-similarity")" \
+        --models "$code_models" \
+        --cache "$embedding_cache")
+duplicates=$(printf '%s\n' "$findings" | reportable_findings)
+
+fail_on_findings "$duplicates" \
+    "these repeat other code - extract the shared logic:"

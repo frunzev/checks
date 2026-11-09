@@ -60,6 +60,7 @@ enabled check over the whole repository.
 | `secrets` | No secret is committed | all | gitleaks | stable | finding fingerprint |
 | `file-length` | No file over `max-lines` | all | - | stable | path |
 | `duplicate-code` | No copied code | Python, TS, PHP, Dart | jscpd | stable | glob |
+| `semantic-duplicates` | No logic repeated in other words | Python, TS, PHP, Dart | fastembed, tree-sitter | experimental | finding text |
 | `dead-code` | Nothing unreachable | Python, TS, PHP, Dart | vulture, knip, phpstan, dart_code_linter | stable | vulture name |
 | `linters` | Style and bug-prone patterns | Python, TS, PHP, Dart | ruff, pylint, eslint, phpcs, dart analyze | stable | `tool:rule` |
 | `unused-deps` | Declared dependencies match imports | Python, TS, PHP, Dart | deptry, knip, composer-dependency-analyser, dependency_validator | stable | - |
@@ -67,9 +68,9 @@ enabled check over the whole repository.
 | `security-patterns` | No insecure dataflow | Python, TS, PHP | semgrep | stable | rule id |
 | `strict-typing` | Strict types, no silencing | Python, TS, PHP, Dart | basedpyright, tsc, phpstan, dart analyze | stable | folder (PHP) |
 | `coverage` | Every line and branch tested | Python, TS, PHP, Dart | pytest-cov, package script, phpunit, dart test | stable | - |
-| `single-responsibility` | One external reason to change per unit | Python, TS | own finder | experimental | finding table |
+| `single-responsibility` | No class or module with unrelated method groups | Python, TS, PHP, Dart | fastembed, tree-sitter | experimental | finding text |
 | `feature-isolation` | Features meet only in `shared` | Python, TS, PHP | own finder | experimental | finding text |
-| `open-closed` | No growing closed dispatch | Python, TS | own finder | experimental | finding text |
+| `open-closed` | No variants branched on in two or more places | Python, TS, PHP, Dart | tree-sitter | experimental | finding text |
 | `dependency-inversion` | Collaborators injected, not built | Python | own finder | experimental | finding text |
 | `definition-names` | No `and`/`or` in names | Python, TS | own finder | experimental | finding text |
 | `nested-definitions` | No function inside a function | Python, TS | own finder | experimental | finding text |
@@ -103,7 +104,24 @@ when = "pre-push"
 - `[checks.<name>]` overrides one check: `when` (same values; experimental
   checks are `off` until set), `scope` (`repository` or `changed`; not
   for `secrets`, which scans every change), `whitelist`,
-  `source_directories`, and `max-lines` / `fail-under`.
+  `source_directories`, and `max-lines` / `fail-under` /
+  `code-similarity` / `word-overlap`.
+- `single-responsibility` and `semantic-duplicates` embed every function
+  with the jina code model (about 640 MB, downloaded by `install.sh`
+  into `.models/`; vectors are cached in `.cache/`). Two methods belong
+  together when their code is `code-similarity` percent alike (default
+  50) or they share `word-overlap` percent of their identifier words
+  (default 20); a class or module fails when its methods, constructors
+  aside, fall into two or more groups of two or more.
+  `semantic-duplicates` reports two functions of five or more lines in
+  one language whose code is `code-similarity` percent alike (default
+  85), except same-named methods of two classes.
+- `open-closed` reads the head of every `if`, `elif`, `elseif` and `case`
+  branch and groups the rare names that travel together across
+  functions. A function fails when two of its branches compare one
+  subject against different quoted or capitalized values of a family
+  of three or more, and another function does the same: adding a
+  variant then edits every such place.
 - Tools take their own options under their check, for example
   `[checks.linters.ruff]`, `[checks.linters.eslint]`, `[checks.linters.phpcs]`,
   `[checks.strict-typing.phpstan]`.

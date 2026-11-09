@@ -1,11 +1,16 @@
+import keyword
 import sys
 import tempfile
 from pathlib import Path
 
-from open_closed_finder_support import written_paths
+from hypothesis import strategies as st
+
 from typescript_finder_support import CHECKS
 
 FINDER_DIRECTORY = CHECKS / "experimental" / "dependency-inversion" / "python"
+IDENTIFIERS = st.text(
+    alphabet="abcdefghijklmnopqrstuvwxyz", min_size=3, max_size=7
+).filter(lambda name: not keyword.iskeyword(name))
 
 if str(FINDER_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(FINDER_DIRECTORY))
@@ -18,6 +23,7 @@ from dependency_inversion_findings import (
 )
 
 __all__ = [
+    "IDENTIFIERS",
     "ConstructedCollaborator",
     "collaborator_names",
     "findings_for",
@@ -25,7 +31,20 @@ __all__ = [
     "repository_module",
     "service_owning",
     "wires_dependencies",
+    "written_paths",
 ]
+
+
+def written_paths(root: Path, modules: dict[str, str]) -> list[str]:
+    paths: list[str] = []
+
+    for name, source in modules.items():
+        module = root / name
+        module.parent.mkdir(parents=True, exist_ok=True)
+        _ = module.write_text(source, encoding="utf-8")
+        paths.append(str(module))
+
+    return paths
 
 
 def findings_for(modules: dict[str, str]) -> list[str]:
