@@ -1,8 +1,7 @@
 from pathlib import PurePosixPath
 from typing import NamedTuple
 
-from tree_sitter import Node
-from tree_sitter_language_pack import get_parser
+from tree_sitter import Node, Parser
 
 from code_members import BranchHead, CodeMember, CodeUnit
 from source_grammars import SourceGrammar
@@ -33,7 +32,8 @@ class NamedNode(NamedTuple):
 def parse_code_units(
     path: str, source: bytes, grammar: SourceGrammar
 ) -> tuple[CodeUnit, ...]:
-    root = get_parser(grammar.name).parse(source).root_node
+    parser = Parser(grammar.tree_sitter_language)
+    root = parser.parse(source).root_node
     module_members = _members_of(root, None, path, source, grammar)
     module_title = f"module {PurePosixPath(path).stem}"
     units = [CodeUnit(path, MODULE_LINE, module_title, module_members)]
@@ -60,25 +60,22 @@ def _members_of(
     members: list[CodeMember] = []
 
     for named_member in _named_members_in(container, grammar):
-        member_nodes = _nodes_of_member(named_member.node, grammar)
-        first_node = member_nodes[0]
-        last_node = member_nodes[-1]
-        member_bytes = source[first_node.start_byte : last_node.end_byte]
+        member_node = named_member.node
         name = _text_of(named_member.name_node, source)
-        first_row = first_node.start_point.row
+        first_row = member_node.start_point.row
 
         members.append(
             CodeMember(
                 path=path,
                 language=grammar.language,
                 line=first_row + 1,
-                line_count=last_node.end_point.row - first_row + 1,
+                line_count=member_node.end_point.row - first_row + 1,
                 name=name,
                 owner_name=owner_name,
                 is_constructor=name in grammar.constructor_names,
-                source_text=member_bytes.decode(SOURCE_ENCODING),
-                identifiers=_identifiers_in(member_nodes, source),
-                branch_heads=_branch_heads_in(member_nodes, source),
+                source_text=_text_of(member_node, source),
+                identifiers=_identifiers_in(member_node, source),
+                branch_heads=_branch_heads_in(member_node, source),
             )
         )
 
@@ -102,10 +99,7 @@ def _named_members_in(
 
             continue
 
-        is_class = node.type in grammar.class_node_types
-        is_detached_body = node.type == grammar.detached_body_node_type
-
-        if is_class or is_detached_body:
+        if node.type in grammar.class_node_types:
             continue
 
         pending_nodes.extend(reversed(node.named_children))
@@ -119,10 +113,7 @@ def _named_classes_in(root: Node, grammar: SourceGrammar) -> list[NamedNode]:
 
     while pending_nodes:
         node = pending_nodes.pop()
-        is_member = node.type in grammar.member_node_types
-        is_detached_body = node.type == grammar.detached_body_node_type
-
-        if is_member or is_detached_body:
+        if node.type in grammar.member_node_types:
             continue
 
         if node.type in grammar.class_node_types:
@@ -136,22 +127,8 @@ def _named_classes_in(root: Node, grammar: SourceGrammar) -> list[NamedNode]:
     return named_classes
 
 
-def _nodes_of_member(
-    member_node: Node, grammar: SourceGrammar
-) -> tuple[Node, ...]:
-    body_node = member_node.next_named_sibling
-
-    if body_node is None:
-        return (member_node,)
-
-    if body_node.type != grammar.detached_body_node_type:
-        return (member_node,)
-
-    return (member_node, body_node)
-
-
 def _name_node_of(node: Node) -> Node | None:
-    naming_nodes = [node, *node.named_children[:1]]
+    naming_nodes = [node]
 
     if node.parent is not None:
         naming_nodes.append(node.parent)
@@ -165,11 +142,9 @@ def _name_node_of(node: Node) -> Node | None:
     return None
 
 
-def _identifiers_in(
-    member_nodes: tuple[Node, ...], source: bytes
-) -> tuple[str, ...]:
+def _identifiers_in(member_node: Node, source: bytes) -> tuple[str, ...]:
     identifiers: list[str] = []
-    pending_nodes = list(reversed(member_nodes))
+    pending_nodes = [member_node]
 
     while pending_nodes:
         node = pending_nodes.pop()
@@ -183,11 +158,11 @@ def _identifiers_in(
 
 
 def _branch_heads_in(
-    member_nodes: tuple[Node, ...], source: bytes
+    member_node: Node, source: bytes
 ) -> tuple[BranchHead, ...]:
     branch_heads: list[BranchHead] = []
     open_keyword: Node | None = None
-    pending_nodes = list(reversed(member_nodes))
+    pending_nodes = [member_node]
 
     while pending_nodes:
         node = pending_nodes.pop()

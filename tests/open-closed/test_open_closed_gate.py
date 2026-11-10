@@ -12,6 +12,13 @@ CHECK_NAME = "open-closed"
 EXPORT_PATH = "user-service/src/export.py"
 PREVIEW_PATH = "ui-service/src/preview.ts"
 SETTINGS_PATH = "user-service/src/settings.py"
+DART_PATH = "user-service/src/report.dart"
+DART_REPORT = (
+    "String exportReport(String kind) {\n"
+    "  if (kind == 'pdf') { return 'a'; }\n"
+    "  return 'b';\n"
+    "}\n"
+)
 EXPORT_REPORT = (
     "def export_report(report_kind):\n"
     '    if report_kind == "pdf":\n'
@@ -101,5 +108,15 @@ def test_passes_whitelisted_findings(tmp_path: Path) -> None:
     whitelist = f'whitelist = ["{EXPORT_FINDING}", "{PREVIEW_FINDING}"]\n'
 
     finished = run_check(tmp_path, CHECK_NAME, {CHECK_NAME: whitelist})
+
+    assert finished.returncode == 0, finished.stderr
+
+
+def test_skips_dart_files(tmp_path: Path) -> None:
+    _staged_repository(
+        tmp_path, {EXPORT_PATH: EXPORT_REPORT, DART_PATH: DART_REPORT}
+    )
+
+    finished = run_check(tmp_path, CHECK_NAME)
 
     assert finished.returncode == 0, finished.stderr

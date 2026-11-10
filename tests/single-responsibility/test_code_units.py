@@ -38,14 +38,6 @@ def _php_class(method_names: list[str]) -> str:
     return f"<?php\nclass {CLASS_NAME} {{\n" + "".join(methods) + "}\n"
 
 
-def _dart_class(method_names: list[str]) -> str:
-    methods = [
-        f"  int {name}() {{ return {name}{MARKER_SUFFIX}; }}\n"
-        for name in method_names
-    ]
-
-    return f"class {CLASS_NAME} {{\n" + "".join(methods) + "}\n"
-
 
 def _python_functions(function_names: list[str]) -> str:
     functions = [
@@ -85,29 +77,16 @@ def _php_functions(function_names: list[str]) -> str:
     return "<?php\n" + "".join(functions)
 
 
-def _dart_functions(function_names: list[str]) -> str:
-    functions = [
-        f"int {name}() {{\n"
-        f"  int nestedHelper() {{ return {name}{MARKER_SUFFIX}; }}\n"
-        "  return nestedHelper();\n"
-        "}\n"
-        for name in function_names
-    ]
-
-    return "".join(functions)
-
 
 CLASS_SOURCES = {
     ".py": _python_class,
     ".ts": _typescript_class,
     ".php": _php_class,
-    ".dart": _dart_class,
 }
 FUNCTION_SOURCES = {
     ".py": _python_functions,
     ".ts": _typescript_functions,
     ".php": _php_functions,
-    ".dart": _dart_functions,
 }
 CONSTRUCTOR_CLASSES = {
     ".py": "class Holder:\n    def __init__(self):\n        pass\n"
@@ -269,23 +248,11 @@ def _php_dispatch(values: list[str]) -> str:
     )
 
 
-def _dart_dispatch(values: list[str]) -> str:
-    cases = [
-        f"    case '{value}':\n      return {position};\n"
-        for position, value in enumerate(values)
-    ]
-
-    return (
-        "int dispatch(String kind) {\n"
-        "  switch (kind) {\n" + "".join(cases) + "  }\n  return -1;\n}\n"
-    )
-
 
 DISPATCH_SOURCES = {
     ".py": _python_dispatch,
     ".ts": _typescript_dispatch,
     ".php": _php_dispatch,
-    ".dart": _dart_dispatch,
 }
 
 
@@ -315,3 +282,7 @@ def test_keeps_a_php_member_access_inside_its_branch_head() -> None:
     branch_head = class_unit.members[0].branch_heads[0]
 
     assert branch_head.condition == " ($this->kind === 'pdf'"
+
+
+def test_has_no_grammar_for_dart() -> None:
+    assert ".dart" not in GRAMMARS_BY_SUFFIX

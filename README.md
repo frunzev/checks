@@ -60,7 +60,7 @@ enabled check over the whole repository.
 | `secrets` | No secret is committed | all | gitleaks | stable | finding fingerprint |
 | `file-length` | No file over `max-lines` | all | - | stable | path |
 | `duplicate-code` | No copied code | Python, TS, PHP, Dart | jscpd | stable | glob |
-| `semantic-duplicates` | No logic repeated in other words | Python, TS, PHP, Dart | fastembed, tree-sitter | experimental | finding text |
+| `semantic-duplicates` | No logic repeated in other words | Python, TS, PHP | onnxruntime, tree-sitter | experimental | finding text |
 | `dead-code` | Nothing unreachable | Python, TS, PHP, Dart | vulture, knip, phpstan, dart_code_linter | stable | vulture name |
 | `linters` | Style and bug-prone patterns | Python, TS, PHP, Dart | ruff, pylint, eslint, phpcs, dart analyze | stable | `tool:rule` |
 | `unused-deps` | Declared dependencies match imports | Python, TS, PHP, Dart | deptry, knip, composer-dependency-analyser, dependency_validator | stable | - |
@@ -68,9 +68,9 @@ enabled check over the whole repository.
 | `security-patterns` | No insecure dataflow | Python, TS, PHP | semgrep | stable | rule id |
 | `strict-typing` | Strict types, no silencing | Python, TS, PHP, Dart | basedpyright, tsc, phpstan, dart analyze | stable | folder (PHP) |
 | `coverage` | Every line and branch tested | Python, TS, PHP, Dart | pytest-cov, package script, phpunit, dart test | stable | - |
-| `single-responsibility` | No class or module with unrelated method groups | Python, TS, PHP, Dart | fastembed, tree-sitter | experimental | finding text |
+| `single-responsibility` | No class or module with unrelated method groups | Python, TS, PHP | onnxruntime, tree-sitter | experimental | finding text |
 | `feature-isolation` | Features meet only in `shared` | Python, TS, PHP | own finder | experimental | finding text |
-| `open-closed` | No variants branched on in two or more places | Python, TS, PHP, Dart | tree-sitter | experimental | finding text |
+| `open-closed` | No variants branched on in two or more places | Python, TS, PHP | tree-sitter | experimental | finding text |
 | `dependency-inversion` | Collaborators injected, not built | Python | own finder | experimental | finding text |
 | `definition-names` | No `and`/`or` in names | Python, TS | own finder | experimental | finding text |
 | `nested-definitions` | No function inside a function | Python, TS | own finder | experimental | finding text |

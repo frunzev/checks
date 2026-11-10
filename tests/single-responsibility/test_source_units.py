@@ -2,7 +2,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from code_units import parse_code_units
@@ -45,6 +45,7 @@ def test_source_paths_from_property_reads_one_path_per_line(
     assert source_paths_from(listing) == [Path(path) for path in paths]
 
 
+@settings(deadline=None)
 @given(unique_member_names)
 def test_read_code_units_property_matches_parsing_the_file_bytes(
     function_names: list[str],

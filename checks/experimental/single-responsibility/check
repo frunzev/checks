@@ -9,7 +9,7 @@ echo "checks: finding is not one, never refactor it - whitelist it: add"
 echo "checks: the exact finding to the"
 echo "checks: [checks.single-responsibility] whitelist in checks.toml"
 
-findings=$(source_files_in "$@" \
+findings=$(tree_sitter_files_in "$@" \
     | "$toolkit_python" "$(dirname "$0")/responsibility_finder.py" \
         --code-similarity "$(setting "checks.$check_name.code-similarity")" \
         --word-overlap "$(setting "checks.$check_name.word-overlap")" \

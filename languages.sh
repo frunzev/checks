@@ -30,8 +30,8 @@ dart_files_in() {
     files_ending_in 'dart' "$@"
 }
 
-source_files_in() {
-    for language in $supported_languages; do
+tree_sitter_files_in() {
+    for language in $tree_sitter_languages; do
         "${language}_files_in" "$@"
     done
 }
@@ -50,6 +50,7 @@ directories_written_in() {
 }
 
 supported_languages="python typescript php dart"
+tree_sitter_languages="python typescript php"
 unsupported_code_extensions="js jsx mjs cjs go rb java kt rs cs swift c cc \
 cpp h hpp scala lua pl ex exs"
 

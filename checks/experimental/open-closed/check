@@ -11,7 +11,7 @@ echo "checks: checks.toml"
 
 shared_finder_directory="$(dirname "$0")/../single-responsibility"
 
-findings=$(source_files_in "$@" \
+findings=$(tree_sitter_files_in "$@" \
     | PYTHONPATH="$shared_finder_directory" \
         "$toolkit_python" "$(dirname "$0")/open_closed_finder.py")
 repeated_dispatches=$(printf '%s\n' "$findings" | reportable_findings)

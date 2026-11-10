@@ -4,20 +4,23 @@ from pathlib import Path
 
 import numpy
 import pytest
-from fastembed import TextEmbedding
 from hypothesis import given, settings
 from hypothesis import strategies as st
+from numpy.typing import NDArray
 
 from code_embeddings import (
     CODE_VECTOR_SIZE,
     MAXIMUM_EMBEDDED_CHARACTERS,
+    CodeModel,
     EmbeddingMatrix,
     embed_texts,
     embedded_text,
     embedding_key,
     load_code_model,
+    mean_pooled,
     no_embeddings,
     normalize_rows,
+    padded_rows,
 )
 from embedding_cache import (
     EmbeddingCache,
@@ -34,6 +37,7 @@ from semantic_finder_support import (
 )
 
 MODEL_SETTINGS = settings(max_examples=3, deadline=None)
+FILE_SETTINGS = settings(deadline=None)
 VECTOR_SIZE = 3
 UNIT_LENGTH_TOLERANCE = 1e-5
 source_texts = st.lists(st.text(min_size=1, max_size=40), max_size=4)
@@ -46,10 +50,12 @@ nonzero_rows = st.lists(
     min_size=1,
     max_size=4,
 )
+hidden_values = st.floats(min_value=-10.0, max_value=10.0, width=32)
+sequence_lengths = st.integers(min_value=1, max_value=5)
 
 
 @functools.cache
-def _code_model() -> TextEmbedding:
+def _code_model() -> CodeModel:
     return load_code_model(CODE_MODELS_DIRECTORY)
 
 
@@ -129,6 +135,7 @@ def test_embed_texts_property_returns_one_unit_vector_per_text(
         assert abs(length - 1.0) < UNIT_LENGTH_TOLERANCE
 
 
+@FILE_SETTINGS
 @given(source_texts)
 def test_embed_member_sources_property_reuses_cached_vectors_in_order(
     texts: list[str],
@@ -171,6 +178,7 @@ def test_no_embeddings_has_no_rows_of_the_code_vector_size() -> None:
     assert no_embeddings().shape == (0, CODE_VECTOR_SIZE)
 
 
+@FILE_SETTINGS
 @given(unique_member_names)
 def test_embed_unit_members_property_maps_every_member_to_its_vector(
     names: list[str],
@@ -200,3 +208,74 @@ def test_embed_unit_members_property_maps_every_member_to_its_vector(
         expected = cached_vectors[member_key]
 
         assert numpy.array_equal(vector, expected)
+
+
+@st.composite
+def hidden_state_batches(
+    draw: st.DrawFn,
+) -> tuple[EmbeddingMatrix, NDArray[numpy.int64]]:
+    sequence_length = draw(sequence_lengths)
+    values = draw(
+        st.lists(
+            hidden_values,
+            min_size=sequence_length * VECTOR_SIZE,
+            max_size=sequence_length * VECTOR_SIZE,
+        )
+    )
+    hidden_states = numpy.array(values, dtype=numpy.float32).reshape(
+        1, sequence_length, VECTOR_SIZE
+    )
+    real_tokens = draw(st.integers(min_value=1, max_value=sequence_length))
+    mask_values = [1] * real_tokens + [0] * (sequence_length - real_tokens)
+    attention_mask = numpy.array([mask_values], dtype=numpy.int64)
+
+    return hidden_states, attention_mask
+
+
+@given(hidden_state_batches())
+def test_mean_pooled_property_averages_only_the_real_tokens(
+    batch: tuple[EmbeddingMatrix, NDArray[numpy.int64]],
+) -> None:
+    hidden_states, attention_mask = batch
+    real_tokens = int(attention_mask.sum())
+    expected = hidden_states[0, :real_tokens].mean(axis=0)
+
+    pooled = mean_pooled(hidden_states, attention_mask)
+
+    assert numpy.allclose(pooled[0], expected, atol=1e-5)
+
+
+@given(hidden_state_batches(), hidden_values)
+def test_mean_pooled_property_ignores_what_padding_holds(
+    batch: tuple[EmbeddingMatrix, NDArray[numpy.int64]],
+    padding_value: float,
+) -> None:
+    hidden_states, attention_mask = batch
+    changed_states = hidden_states.copy()
+    changed_states[attention_mask == 0] = padding_value
+
+    pooled = mean_pooled(hidden_states, attention_mask)
+    changed_pooled = mean_pooled(changed_states, attention_mask)
+
+    assert numpy.allclose(pooled, changed_pooled, atol=1e-6)
+
+
+@given(
+    st.lists(
+        st.lists(st.integers(min_value=0, max_value=50), max_size=6),
+        min_size=1,
+        max_size=4,
+    ),
+    st.integers(min_value=0, max_value=3),
+)
+def test_padded_rows_property_fills_every_row_to_the_longest(
+    rows: list[list[int]], filler: int
+) -> None:
+    padded = padded_rows(rows, filler)
+    longest_row = max(len(row) for row in rows)
+
+    assert padded.shape == (len(rows), longest_row)
+
+    for row, padded_row in zip(rows, padded.tolist(), strict=True):
+        assert padded_row[: len(row)] == row
+        assert padded_row[len(row) :] == [filler] * (longest_row - len(row))

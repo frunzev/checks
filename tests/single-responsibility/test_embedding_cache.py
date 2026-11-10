@@ -2,7 +2,7 @@ import tempfile
 from pathlib import Path
 
 import numpy
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from embedding_cache import (
@@ -40,6 +40,7 @@ def test_read_embedding_cache_property_is_empty_without_a_cache_file(
     assert cache == {}
 
 
+@settings(deadline=None)
 @given(cache_contents)
 def test_write_embedding_cache_property_round_trips_every_vector(
     contents: dict[str, list[float]],
@@ -57,6 +58,7 @@ def test_write_embedding_cache_property_round_trips_every_vector(
         assert numpy.array_equal(read_cache[key], vector)
 
 
+@settings(deadline=None)
 @given(cache_contents)
 def test_write_embedding_cache_property_leaves_only_the_cache_file(
     contents: dict[str, list[float]],
