@@ -1,0 +1,23 @@
+#!/bin/sh
+set -e
+. "$toolkit/tools.sh"
+
+echo "checks: linters in rust (cargo clippy, cargo fmt)"
+echo "checks: write for the reader - code is read far more than written"
+
+require_cargo
+
+for package in $(packages_of "$@"); do
+    require_rust_package "$package"
+
+    if ! (cd "$package" && cargo clippy --quiet --all-targets \
+        -- --deny warnings); then
+        echo "checks: cargo clippy rejected $package" >&2
+        exit 1
+    fi
+
+    if ! (cd "$package" && cargo fmt --check); then
+        echo "checks: $package is not formatted - run cargo fmt there" >&2
+        exit 1
+    fi
+done

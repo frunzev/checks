@@ -1,0 +1,31 @@
+#!/bin/sh
+set -e
+. "$toolkit/tools.sh"
+
+echo "checks: strict typing in rust (cargo check, warnings denied)"
+echo "checks: type it strictly - an illegal state must fail to compile"
+echo "checks: never silence the checker - fix the type instead"
+
+require_cargo
+
+attribute_opening='#[[:space:]]*!?[[:space:]]*\[[[:space:]]*'
+conditional_opening='(cfg_attr[[:space:]]*\(.*,[[:space:]]*)?'
+lint_level='(allow|expect)[[:space:]]*\('
+silencers="$attribute_opening$conditional_opening$lint_level"
+silenced=$(rust_files_in "$@" \
+    | while IFS= read -r source_file; do
+        grep -anHE "$silencers" "$source_file" || true
+    done)
+
+fail_on_findings "$silenced" \
+    "a lint is silenced here - fix the code instead:"
+
+for package in $(packages_of "$@"); do
+    require_rust_package "$package"
+
+    if ! (cd "$package" && CARGO_BUILD_WARNINGS=deny \
+        cargo check --quiet --all-targets); then
+        echo "checks: $package does not type-check without warnings" >&2
+        exit 1
+    fi
+done
