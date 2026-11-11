@@ -11,6 +11,10 @@ code_model_downloader="$responsibility_finder/download_code_model.py"
 code_models="$toolkit/.models"
 dart_code_linter_version=4.4.2
 dependency_validator_version=5.1.0
+rust_tool_root="$toolkit/.cargo-tools"
+rust_components="clippy rustfmt llvm-tools-preview"
+pinned_rust_tools="cargo-machete@0.9.2 cargo-audit@0.22.2 \
+cargo-llvm-cov@0.9.1"
 toolkit_folder=$(basename "$toolkit")
 
 if [ ! -d "$virtual_environment" ]; then
@@ -41,6 +45,18 @@ if command -v dart > /dev/null 2>&1; then
         -o "$dart_tool_cache/bin/property_test_coverage" > /dev/null
 else
     echo "install: dart is missing - dart checks will not run"
+fi
+
+if command -v cargo > /dev/null 2>&1 \
+    && command -v rustup > /dev/null 2>&1; then
+    rustup component add $rust_components
+
+    for pinned_rust_tool in $pinned_rust_tools; do
+        cargo install --quiet --locked --root "$rust_tool_root" \
+            "$pinned_rust_tool"
+    done
+else
+    echo "install: cargo or rustup is missing - rust checks will not run"
 fi
 
 if ! command -v osv-scanner > /dev/null 2>&1; then

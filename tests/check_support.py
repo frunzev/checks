@@ -7,7 +7,13 @@ from hypothesis import HealthCheck, settings
 
 TOOLKIT = Path(__file__).resolve().parent.parent
 COPIED_TOOLKIT = ".checks-toolkit"
-TOOLKIT_FILES = ("run", "tools.sh", "languages.sh")
+TOOLKIT_FILES = (
+    "run",
+    "tools.sh",
+    "languages.sh",
+    "dart_tools.sh",
+    "rust_tools.sh",
+)
 TOOLKIT_FOLDERS = ("checks", "configuration")
 IGNORED = f"{COPIED_TOOLKIT}/\n.venv/\n.dart_tool/\n"
 WORDPRESS_MANIFEST = (

@@ -1,24 +1,3 @@
-"""
-An exported CDPATH must neither switch the hooks off nor send a check into
-another directory. Domain: a project installed with the README command
-.checks/install.sh, whose svc/src holds a type error, beside a folder
-elsewhere/svc/src holding clean code, under a generated CDPATH. Oracle:
-postcondition - committing the type error through the installed hook is
-rejected, whatever CDPATH the shell exports.
-
-Concrete inputs -> expected outputs:
-- input: CDPATH unset, svc/src/value.py = 'VALUE: int = "a"', git commit
-  output: commit rejected, "checks: svc does not type-check".
-- input (falsifying example, pinned as @example): CDPATH=".:elsewhere"
-  output: expected the commit rejected, got it accepted -
-  install.sh read its own folder twice from `cd`, so core.hooksPath became
-  "<project>/.checks\\n<project>/.checks/hooks", a path that does not
-  exist, git ran no hook, and a stray ".checks\\n" folder appeared.
-- input (falsifying example, pinned as @example): CDPATH="elsewhere"
-  output: expected the commit rejected, got it accepted - the hook ran,
-  but `cd svc` entered elsewhere/svc and type-checked the clean copy.
-"""
-
 import os
 import shutil
 import subprocess
@@ -32,7 +11,14 @@ from hypothesis import strategies as st
 from check_support import TOOLKIT, stub_code_model_downloader
 
 TOOLKIT_FOLDER = ".checks"
-TOOLKIT_FILES = ("install.sh", "run", "tools.sh", "languages.sh")
+TOOLKIT_FILES = (
+    "install.sh",
+    "run",
+    "tools.sh",
+    "languages.sh",
+    "dart_tools.sh",
+    "rust_tools.sh",
+)
 TOOLKIT_FOLDERS = ("checks", "configuration", "hooks")
 CONFIGURATION = (
     'source_directories = ["svc/src"]\n'
@@ -104,6 +90,8 @@ def _environment(workspace: Path, cdpath: str) -> dict[str, str]:
     _executable(shims / "npm", "#!/bin/sh\nexit 0\n")
     _executable(shims / "composer", "#!/bin/sh\nexit 0\n")
     _executable(shims / "dart", "#!/bin/sh\nexit 0\n")
+    _executable(shims / "cargo", "#!/bin/sh\nexit 0\n")
+    _executable(shims / "rustup", "#!/bin/sh\nexit 0\n")
     _executable(shims / "python3", VENV_SHIM)
     elsewhere = workspace / "elsewhere"
     project = workspace / "project"

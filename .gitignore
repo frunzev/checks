@@ -9,6 +9,7 @@ __pycache__/
 package-lock.json
 composer.lock
 .pub-cache/
+.cargo-tools/
 .dart_tool/
 pubspec.lock
 .models/
