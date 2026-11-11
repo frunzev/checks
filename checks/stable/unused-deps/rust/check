@@ -1,0 +1,19 @@
+#!/bin/sh
+set -e
+. "$toolkit/tools.sh"
+
+echo "checks: rust dependencies (declare what you use, drop what you"
+echo "checks: don't)"
+
+require_binary "$rust_tools/cargo-machete" cargo-machete
+
+for package in $(packages_of "$@"); do
+    require_rust_package "$package"
+
+    if ! "$rust_tools/cargo-machete" "$package"; then
+        echo "checks: $package/Cargo.toml declares a crate the code" >&2
+        echo "checks: never uses - drop it, or list it in" >&2
+        echo "checks: [package.metadata.cargo-machete] ignored" >&2
+        exit 1
+    fi
+done
