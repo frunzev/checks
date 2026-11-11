@@ -1,0 +1,19 @@
+#!/bin/sh
+set -e
+. "$toolkit/tools.sh"
+
+echo "checks: dead code in rust (rustc unused lints, all targets)"
+echo "checks: follow YAGNI - delete what nothing reaches, do not keep it"
+
+require_cargo
+
+for package in $(packages_of "$@"); do
+    require_rust_package "$package"
+
+    if ! (cd "$package" && cargo clippy --quiet --all-targets \
+        -- --allow warnings --deny unused); then
+        echo "checks: nothing reaches this code in $package -" >&2
+        echo "checks: delete it" >&2
+        exit 1
+    fi
+done
