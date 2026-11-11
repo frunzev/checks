@@ -1,0 +1,71 @@
+#!/bin/sh
+set -e
+. "$toolkit/tools.sh"
+
+echo "checks: rust dependencies (no known vulnerability)"
+echo "checks: stay secure by default - upgrade rather than accept it"
+
+require_cargo
+require_binary "$rust_tools/cargo-audit" cargo-audit
+
+reported_vulnerability="vulnerabilit(y|ies) found"
+
+lockfile_of() {
+    workspace_manifest=$(cd "$1" \
+        && cargo locate-project --workspace --message-format plain)
+
+    echo "$(dirname "$workspace_manifest")/Cargo.lock"
+}
+
+audit_lockfile() {
+    lockfile=$1
+
+    set -- audit --no-yanked --file "$lockfile" \
+        --db "$rust_advisory_database"
+
+    for accepted_advisory in $(whitelist_entries); do
+        set -- "$@" --ignore "$accepted_advisory"
+    done
+
+    if audit_output=$("$rust_tools/cargo-audit" "$@" 2>&1); then
+        return
+    fi
+
+    if echo "$audit_output" | grep -qE "$reported_vulnerability"; then
+        echo "checks: a crate in $lockfile has a known vulnerability -" >&2
+        echo "checks: run cargo update for it, or add the advisory id" >&2
+        echo "checks: to [checks.vulnerable-deps] whitelist:" >&2
+        echo "$audit_output" >&2
+        exit 1
+    fi
+
+    if echo "$audit_output" | grep -qE "$unreachable_registry"; then
+        echo "checks: advisory database unreachable - skipping the" >&2
+        echo "checks: cargo-audit scan of $lockfile" >&2
+        return
+    fi
+
+    echo "checks: cargo-audit failed before it could scan $lockfile:" >&2
+    echo "$audit_output" >&2
+    exit 1
+}
+
+audited_lockfiles=""
+
+for package in $(packages_of "$@"); do
+    require_rust_package "$package"
+    lockfile=$(lockfile_of "$package")
+
+    if printf '%s\n' "$audited_lockfiles" | grep -qxF -e "$lockfile"; then
+        continue
+    fi
+
+    if [ ! -f "$lockfile" ]; then
+        echo "checks: $lockfile is missing - run cargo generate-lockfile" >&2
+        echo "checks: in $package" >&2
+        exit 1
+    fi
+
+    audited_lockfiles=$(printf '%s\n%s' "$audited_lockfiles" "$lockfile")
+    audit_lockfile "$lockfile"
+done

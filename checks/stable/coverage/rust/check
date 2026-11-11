@@ -1,0 +1,35 @@
+#!/bin/sh
+set -e
+. "$toolkit/tools.sh"
+
+minimum_coverage=$(setting checks.coverage.fail-under)
+
+echo "checks: rust line coverage (min $minimum_coverage% - branch coverage"
+echo "checks: needs nightly rust, so lines only)"
+echo "checks: test first - do not write a line no test asked for"
+
+require_cargo
+require_binary "$rust_tools/cargo-llvm-cov" cargo-llvm-cov
+
+tested_directories=$(tested_sources "$@")
+
+for source_directory in $tested_directories; do
+    package=$(package_of "$source_directory")
+    require_rust_package "$package"
+    (cd "$package" && "$rust_tools/cargo-llvm-cov" llvm-cov clean \
+        --profraw-only)
+
+    if ! (cd "$package" && "$rust_tools/cargo-llvm-cov" llvm-cov \
+        --no-report); then
+        echo "checks: the tests of $package fail" >&2
+        exit 1
+    fi
+
+    if ! (cd "$package" && "$rust_tools/cargo-llvm-cov" llvm-cov report \
+        --show-missing-lines --fail-under-lines "$minimum_coverage"); then
+        echo "checks: $package is covered below $minimum_coverage% - test" >&2
+        echo "checks: what you wrote, or delete the line no test asked" >&2
+        echo "checks: for" >&2
+        exit 1
+    fi
+done
