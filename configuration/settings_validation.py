@@ -2,7 +2,15 @@ import datetime
 import math
 import re
 from pathlib import Path, PurePosixPath
-from typing import NamedTuple, cast
+from typing import cast
+
+from check_options import (
+    LANGUAGE_NUMBER_OPTIONS,
+    NUMBER_OPTIONS,
+    SUPPORTED_LANGUAGES,
+    TOOL_OPTIONS,
+    NumberOption,
+)
 
 type Configuration = dict[str, object]
 
@@ -38,30 +46,6 @@ SCOPE_CHOICES = frozenset({"changed", "repository"})
 COMMON_CHECK_KEYS = frozenset(
     {"when", "scope", "whitelist", "source_directories"}
 )
-
-
-class NumberOption(NamedTuple):
-    name: str
-    lowest: int
-    highest: int
-    default: int
-
-
-NUMBER_OPTIONS: dict[str, tuple[NumberOption, ...]] = {
-    "file-length": (NumberOption("max-lines", 1, 100_000, 300),),
-    "coverage": (NumberOption("fail-under", 0, 100, 100),),
-    "single-responsibility": (
-        NumberOption("code-similarity", 1, 100, 50),
-        NumberOption("word-overlap", 1, 100, 20),
-    ),
-    "semantic-duplicates": (NumberOption("code-similarity", 1, 100, 85),),
-}
-TOOL_OPTIONS: dict[str, frozenset[str]] = {
-    "linters": frozenset({"ruff", "eslint", "phpcs"}),
-    "strict-typing": frozenset({"phpstan"}),
-    "dead-code": frozenset({"phpstan"}),
-    "unused-deps": frozenset({"composer-dependency-analyser"}),
-}
 SOURCE_SETTING = "source_directories"
 ENVIRONMENT_SETTING = "python_environment"
 UNSUPPORTED_FOLDER_NAME = re.compile(r"[\s*?\[\\]|^-")
@@ -178,14 +162,14 @@ def validate_number_options(
 ) -> None:
     for number_option in NUMBER_OPTIONS.get(check_name, ()):
         if number_option.name in check:
-            validate_number_option(check_name, check, number_option)
+            setting_name = f"checks.{check_name}.{number_option.name}"
+            option_value = check[number_option.name]
+            validate_number(setting_name, option_value, number_option)
 
 
-def validate_number_option(
-    check_name: str, check: dict[str, object], number_option: NumberOption
+def validate_number(
+    setting_name: str, option_value: object, number_option: NumberOption
 ) -> None:
-    setting_name = f"checks.{check_name}.{number_option.name}"
-    option_value = check[number_option.name]
     lowest = number_option.lowest
     highest = number_option.highest
     is_flag = isinstance(option_value, bool)
@@ -199,9 +183,35 @@ def validate_number_option(
         raise ConfigurationError(message)
 
 
+def validate_language_number_options(
+    check_name: str, check: dict[str, object]
+) -> None:
+    language_options = LANGUAGE_NUMBER_OPTIONS.get(check_name, {})
+
+    for option_name, number_option in language_options.items():
+        if option_name in check:
+            table_name = f"checks.{check_name}.{option_name}"
+            written_numbers = check[option_name]
+            validate_language_numbers(
+                table_name, written_numbers, number_option
+            )
+
+
+def validate_language_numbers(
+    table_name: str, written_numbers: object, number_option: NumberOption
+) -> None:
+    language_numbers = as_table(table_name, written_numbers)
+
+    for language, option_value in language_numbers.items():
+        validate_choice(table_name, language, SUPPORTED_LANGUAGES)
+        setting_name = f"{table_name}.{language}"
+        validate_number(setting_name, option_value, number_option)
+
+
 def allowed_check_keys(check_name: str) -> set[str]:
     allowed_keys = set(COMMON_CHECK_KEYS)
     allowed_keys.update(TOOL_OPTIONS.get(check_name, frozenset()))
+    allowed_keys.update(LANGUAGE_NUMBER_OPTIONS.get(check_name, {}))
 
     for number_option in NUMBER_OPTIONS.get(check_name, ()):
         allowed_keys.add(number_option.name)
@@ -235,6 +245,7 @@ def validate_check(check_name: str, check_section: object) -> None:
         validate_source_directories(check[SOURCE_SETTING])
 
     validate_number_options(check_name, check)
+    validate_language_number_options(check_name, check)
 
     for tool_name in TOOL_OPTIONS.get(check_name, frozenset()):
         if tool_name in check:

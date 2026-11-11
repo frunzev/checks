@@ -2,26 +2,37 @@
 set -e
 . "$toolkit/tools.sh"
 
-maximum_lines=$(setting checks.file-length.max-lines)
+default_maximum_lines=$(setting checks.file-length.max-lines)
+language_maximum_lines=$(setting checks.file-length.max-lines-by-language)
+language_limits_summary=$(printf '%s' "$language_maximum_lines" \
+    | sed 's/^/, /; s/ = / /' | tr -d '\n')
+line_limits="max $default_maximum_lines lines$language_limits_summary"
 
-echo "checks: file length (max $maximum_lines lines)"
+echo "checks: file length ($line_limits)"
 echo "checks: follow SRP - split a file that grew past one job"
 
-source_files=$(
-    python_files_in "$@"
-    typescript_files_in "$@"
-    php_files_in "$@"
-    dart_files_in "$@"
-)
-checked_files=$(printf '%s\n' "$source_files" | without_whitelisted)
+maximum_lines_of() {
+    configured_maximum=$(printf '%s\n' "$language_maximum_lines" \
+        | sed -n "s/^$1 = //p")
 
-overlong_files=$(printf '%s\n' "$checked_files" | grep -a . \
-    | while IFS= read -r source_file; do
+    echo "${configured_maximum:-$default_maximum_lines}"
+}
+
+overlong_files_among() {
+    maximum_lines=$1
+
+    without_whitelisted | grep -a . | while IFS= read -r source_file; do
         line_count=$(awk 'END {print NR}' < "$source_file")
 
         if [ "$line_count" -gt "$maximum_lines" ]; then
             printf '%s (%s lines)\n' "$source_file" "$line_count"
         fi
-    done | within_scope)
+    done
+}
 
-fail_on_findings "$overlong_files" "over $maximum_lines lines:"
+overlong_files=$(for language in $supported_languages; do
+    "${language}_files_in" "$@" \
+        | overlong_files_among "$(maximum_lines_of "$language")"
+done | within_scope)
+
+fail_on_findings "$overlong_files" "over the line limit of their language:"

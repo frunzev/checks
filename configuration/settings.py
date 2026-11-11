@@ -5,14 +5,17 @@ import tomllib
 from pathlib import Path
 from typing import cast
 
+from check_options import (
+    LANGUAGE_NUMBER_OPTIONS,
+    NUMBER_OPTIONS,
+    TOOL_OPTIONS,
+)
 from settings_validation import (
     CHECK_ORDER,
     CHECKS_SETTING,
     EXPERIMENTAL_DIRECTORY,
-    NUMBER_OPTIONS,
     SOURCE_SETTING,
     STABLE_DIRECTORY,
-    TOOL_OPTIONS,
     TOOLKIT_DIRECTORY,
     Configuration,
     ConfigurationError,
@@ -73,6 +76,9 @@ def check_settings(
 
     for tool_name in TOOL_OPTIONS.get(check_name, frozenset()):
         settings[tool_name] = {}
+
+    for option_name in LANGUAGE_NUMBER_OPTIONS.get(check_name, {}):
+        settings[option_name] = {}
 
     settings.update(written)
 
